@@ -31,15 +31,19 @@ resource "ibm_cos_bucket" "flex-us-south" {
 }
 ```
 
-**NOTE : Data of the key can be retrieved either using a key name or an alias name (if created for the key or keys) .
+**NOTE :
+1) Data of the key can be retrieved either using a key name or an alias name (if created for the key or keys) .
+2) limit is an optional parameter used with the keyname, which iterates and fetches the key till the limit given.
 
 ## Argument Reference
 
 The following arguments are supported:
 
 * `instance_id` - (Required, string) The keyprotect instance guid.
-* `key_name` - (Required, In conflict with alias_name, string) The name of the key. Only the keys with matching name will be retreived.
-* `alias` - (Required, In conflict with key_name, string) The alias name associated with the key. Only the key with matching alias name will be retreived.
+* `key_id` - (Required, In conflict with alias_name,key_name, string) The keyprotect instance guid.
+* `limit` - (Required, In conflict with alias_name,key_name, string) The keyprotect instance guid.
+* `key_name` - (Required, In conflict with alias_name,key_id string) The name of the key. Only the keys with matching name will be retreived.
+* `alias` - (Required, In conflict with key_name,key_id string) The alias name associated with the key. Only the key with matching alias name will be retreived.
 * `endpoint_type` - (Optional, string) The type of the endpoint (public or private) to be used for fetching keys.
 
 ## Attribute Reference

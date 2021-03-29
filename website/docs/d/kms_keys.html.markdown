@@ -30,6 +30,8 @@ resource "ibm_cos_bucket" "flex-us-south" {
 The following arguments are supported:
 
 * `instance_id` - (Required, string) The keyprotect instance guid.
+* `limit` - (Optional, int) The limit till the keys need to be fetched in the instance.
+* `key_id` - (Required, In conflict with alias_name,key_name, string) The keyID of the key to be fetched.
 * `key_name` - (Optional, string) The name of the key. Only the keys with matching name will be retreived.
 * `alias` - (Optional, string) The alias name associated with the key. Only the key with matching alias name will be retreived.
 * `endpoint_type` - (Optional, string) The type of the endpoint (public or private) to be used for fetching keys.
