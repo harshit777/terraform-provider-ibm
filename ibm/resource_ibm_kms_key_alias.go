@@ -129,7 +129,7 @@ func resourceIBMKmsKeyAliasRead(d *schema.ResourceData, meta interface{}) error 
 	id := strings.Split(d.Id(), ":alias:")
 	crn := id[1]
 	crnData := strings.Split(crn, ":")
-	endpointType := crnData[3]
+	endpointType := d.Get("endpoint_type").(string)
 	instanceID := crnData[len(crnData)-3]
 	keyid := crnData[len(crnData)-1]
 
@@ -182,7 +182,11 @@ func resourceIBMKmsKeyAliasRead(d *schema.ResourceData, meta interface{}) error 
 	d.Set("alias", id[0])
 	d.Set("key_id", key.ID)
 	d.Set("instance_id", instanceID)
-	d.Set("endpoint_type", endpointType)
+	if strings.Contains(kpAPI.Config.BaseURL, "private") {
+		d.Set("endpoint_type", "private")
+	} else {
+		d.Set("endpoint_type", endpointType)
+	}
 
 	return nil
 }
@@ -195,7 +199,7 @@ func resourceIBMKmsKeyAliasDelete(d *schema.ResourceData, meta interface{}) erro
 	id := strings.Split(d.Id(), ":alias:")
 	crn := id[1]
 	crnData := strings.Split(crn, ":")
-	endpointType := crnData[3]
+	endpointType := d.Get("endpoint_type").(string)
 	instanceID := crnData[len(crnData)-3]
 	keyid := crnData[len(crnData)-1]
 

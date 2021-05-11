@@ -153,7 +153,7 @@ func resourceIBMKmsKeyRingRead(d *schema.ResourceData, meta interface{}) error {
 	id := strings.Split(d.Id(), ":keyRing:")
 	crn := id[1]
 	crnData := strings.Split(crn, ":")
-	endpointType := crnData[3]
+	endpointType := d.Get("endpoint_type").(string)
 	instanceID := crnData[len(crnData)-3]
 
 	var hpcsEndpointURL string
@@ -203,7 +203,11 @@ func resourceIBMKmsKeyRingRead(d *schema.ResourceData, meta interface{}) error {
 	}
 
 	d.Set("instance_id", instanceID)
-	d.Set("endpoint_type", endpointType)
+	if strings.Contains(kpAPI.Config.BaseURL, "private") {
+		d.Set("endpoint_type", "private")
+	} else {
+		d.Set("endpoint_type", endpointType)
+	}
 	d.Set("key_ring_id", id[0])
 	return nil
 }
@@ -216,7 +220,7 @@ func resourceIBMKmsKeyRingDelete(d *schema.ResourceData, meta interface{}) error
 	id := strings.Split(d.Id(), ":keyRing:")
 	crn := id[1]
 	crnData := strings.Split(crn, ":")
-	endpointType := crnData[3]
+	endpointType := d.Get("endpoint_type").(string)
 	instanceID := crnData[len(crnData)-3]
 
 	var hpcsEndpointURL string

@@ -296,15 +296,18 @@ func resourceIBMKmsKeyCreate(d *schema.ResourceData, meta interface{}) error {
 		kpAPI.URL = u
 	} else if crnData[4] == "kms" {
 		if endpointType == "private" {
-			if !strings.HasPrefix(kpAPI.Config.BaseURL, "private") {
+			if !strings.Contains(kpAPI.Config.BaseURL, "private") {
 				kmsEndpURL := strings.SplitAfter(kpAPI.Config.BaseURL, "https://")
-				kmsEndpointURL := kmsEndpURL[0] + "private." + kmsEndpURL[1]
-				log.Println("kmsendpoiNturl ===>", kmsEndpointURL)
-				u, err := url.Parse(kmsEndpointURL)
-				if err != nil {
-					return fmt.Errorf("Error Parsing kms EndpointURL")
+				if len(kmsEndpURL) == 2 {
+					kmsEndpointURL := kmsEndpURL[0] + "private." + kmsEndpURL[1]
+					u, err := url.Parse(kmsEndpointURL)
+					if err != nil {
+						return fmt.Errorf("Error Parsing kms EndpointURL")
+					}
+					kpAPI.URL = u
+				} else {
+					return fmt.Errorf("Error in Kms EndPoint URL ")
 				}
-				kpAPI.URL = u
 			}
 		}
 	} else {
@@ -387,7 +390,7 @@ func resourceIBMKmsKeyRead(d *schema.ResourceData, meta interface{}) error {
 	}
 	crn := d.Id()
 	crnData := strings.Split(crn, ":")
-	endpointType := crnData[3]
+	endpointType := d.Get("endpoint_type").(string)
 	instanceID := crnData[len(crnData)-3]
 	keyid := crnData[len(crnData)-1]
 
@@ -421,8 +424,18 @@ func resourceIBMKmsKeyRead(d *schema.ResourceData, meta interface{}) error {
 	} else if crnData[4] == "kms" {
 		instanceType = "kms"
 		if endpointType == "private" {
-			if !strings.HasPrefix(kpAPI.Config.BaseURL, "private") {
-				kpAPI.Config.BaseURL = "private." + kpAPI.Config.BaseURL
+			if !strings.Contains(kpAPI.Config.BaseURL, "private") {
+				kmsEndpURL := strings.SplitAfter(kpAPI.Config.BaseURL, "https://")
+				if len(kmsEndpURL) == 2 {
+					kmsEndpointURL := kmsEndpURL[0] + "private." + kmsEndpURL[1]
+					u, err := url.Parse(kmsEndpointURL)
+					if err != nil {
+						return fmt.Errorf("Error Parsing kms EndpointURL")
+					}
+					kpAPI.URL = u
+				} else {
+					return fmt.Errorf("Error in Kms EndPoint URL ")
+				}
 			}
 		}
 	} else {
@@ -454,7 +467,11 @@ func resourceIBMKmsKeyRead(d *schema.ResourceData, meta interface{}) error {
 	d.Set("iv_value", key.IV)
 	d.Set("key_name", key.Name)
 	d.Set("crn", key.CRN)
-	d.Set("endpoint_type", endpointType)
+	if strings.Contains(kpAPI.Config.BaseURL, "private") {
+		d.Set("endpoint_type", "private")
+	} else {
+		d.Set("endpoint_type", endpointType)
+	}
 	d.Set("type", instanceType)
 	d.Set("force_delete", d.Get("force_delete").(bool))
 	d.Set("key_ring_id", key.KeyRingID)
@@ -536,8 +553,18 @@ func resourceIBMKmsKeyUpdate(d *schema.ResourceData, meta interface{}) error {
 			kpAPI.URL = u
 		} else if crnData[4] == "kms" {
 			if endpointType == "private" {
-				if !strings.HasPrefix(kpAPI.Config.BaseURL, "private") {
-					kpAPI.Config.BaseURL = "private." + kpAPI.Config.BaseURL
+				if !strings.Contains(kpAPI.Config.BaseURL, "private") {
+					kmsEndpURL := strings.SplitAfter(kpAPI.Config.BaseURL, "https://")
+					if len(kmsEndpURL) == 2 {
+						kmsEndpointURL := kmsEndpURL[0] + "private." + kmsEndpURL[1]
+						u, err := url.Parse(kmsEndpointURL)
+						if err != nil {
+							return fmt.Errorf("Error Parsing kms EndpointURL")
+						}
+						kpAPI.URL = u
+					} else {
+						return fmt.Errorf("Error in Kms EndPoint URL ")
+					}
 				}
 			}
 		} else {
@@ -567,7 +594,7 @@ func resourceIBMKmsKeyDelete(d *schema.ResourceData, meta interface{}) error {
 	}
 	crn := d.Id()
 	crnData := strings.Split(crn, ":")
-	endpointType := crnData[3]
+	endpointType := d.Get("endpoint_type").(string)
 	instanceID := crnData[len(crnData)-3]
 	keyid := crnData[len(crnData)-1]
 	kpAPI.Config.InstanceID = instanceID
@@ -598,8 +625,18 @@ func resourceIBMKmsKeyDelete(d *schema.ResourceData, meta interface{}) error {
 		kpAPI.URL = u
 	} else if crnData[4] == "kms" {
 		if endpointType == "private" {
-			if !strings.HasPrefix(kpAPI.Config.BaseURL, "private") {
-				kpAPI.Config.BaseURL = "private." + kpAPI.Config.BaseURL
+			if !strings.Contains(kpAPI.Config.BaseURL, "private") {
+				kmsEndpURL := strings.SplitAfter(kpAPI.Config.BaseURL, "https://")
+				if len(kmsEndpURL) == 2 {
+					kmsEndpointURL := kmsEndpURL[0] + "private." + kmsEndpURL[1]
+					u, err := url.Parse(kmsEndpointURL)
+					if err != nil {
+						return fmt.Errorf("Error Parsing kms EndpointURL")
+					}
+					kpAPI.URL = u
+				} else {
+					return fmt.Errorf("Error in Kms EndPoint URL ")
+				}
 			}
 		}
 	} else {
@@ -629,7 +666,7 @@ func resourceIBMKmsKeyExists(d *schema.ResourceData, meta interface{}) (bool, er
 
 	crn := d.Id()
 	crnData := strings.Split(crn, ":")
-	endpointType := crnData[3]
+	endpointType := d.Get("endpoint_type").(string)
 	instanceID := crnData[len(crnData)-3]
 	keyid := crnData[len(crnData)-1]
 	kpAPI.Config.InstanceID = instanceID
@@ -661,8 +698,18 @@ func resourceIBMKmsKeyExists(d *schema.ResourceData, meta interface{}) (bool, er
 		kpAPI.URL = u
 	} else if crnData[4] == "kms" {
 		if endpointType == "private" {
-			if !strings.HasPrefix(kpAPI.Config.BaseURL, "private") {
-				kpAPI.Config.BaseURL = "private." + kpAPI.Config.BaseURL
+			if !strings.Contains(kpAPI.Config.BaseURL, "private") {
+				kmsEndpURL := strings.SplitAfter(kpAPI.Config.BaseURL, "https://")
+				if len(kmsEndpURL) == 2 {
+					kmsEndpointURL := kmsEndpURL[0] + "private." + kmsEndpURL[1]
+					u, err := url.Parse(kmsEndpointURL)
+					if err != nil {
+						return false, fmt.Errorf("Error Parsing kms EndpointURL")
+					}
+					kpAPI.URL = u
+				} else {
+					return false, fmt.Errorf("Error in Kms EndPoint URL ")
+				}
 			}
 		}
 	} else {
