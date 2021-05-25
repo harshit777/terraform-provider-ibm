@@ -13,17 +13,17 @@ import (
 	"time"
 
 	kp "github.com/IBM/keyprotect-go-client"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
-func resourceIBMKmskey() *schema.Resource {
+func resourceIBMKmskeyPolicy() *schema.Resource {
 	return &schema.Resource{
-		Create:   resourceIBMKmsKeyCreate,
-		Read:     resourceIBMKmsKeyRead,
-		Update:   resourceIBMKmsKeyUpdate,
-		Delete:   resourceIBMKmsKeyDelete,
-		Exists:   resourceIBMKmsKeyExists,
-		Importer: &schema.ResourceImporter{},
+		CreateContext: resourceIBMKmsKeyPolicyCreate,
+		ReadContext:   resourceIBMKmsKeyPolicyRead,
+		UpdateContext: resourceIBMKmsKeyPolicyUpdate,
+		DeleteContext: resourceIBMKmsKeyPolicyDelete,
+		Importer:      &schema.ResourceImporter{},
 		Timeouts: &schema.ResourceTimeout{
 			Create: schema.DefaultTimeout(10 * time.Minute),
 			Update: schema.DefaultTimeout(10 * time.Minute),
@@ -36,28 +36,10 @@ func resourceIBMKmskey() *schema.Resource {
 				ForceNew:    true,
 				Description: "Key protect or hpcs instance GUID",
 			},
-			"key_ring_id": {
-				Type:        schema.TypeString,
-				Optional:    true,
-				ForceNew:    true,
-				Default:     "default",
-				Description: "Key Ring for the Key",
-			},
 			"key_id": {
 				Type:        schema.TypeString,
-				Computed:    true,
-				Description: "Key ID",
-			},
-			"key_name": {
-				Type:        schema.TypeString,
 				Required:    true,
-				ForceNew:    true,
-				Description: "Key name",
-			},
-			"type": {
-				Type:        schema.TypeString,
-				Computed:    true,
-				Description: "type of service hs-crypto or kms",
+				Description: "Key ID",
 			},
 			"endpoint_type": {
 				Type:         schema.TypeString,
@@ -67,52 +49,8 @@ func resourceIBMKmskey() *schema.Resource {
 				ForceNew:     true,
 				Default:      "public",
 			},
-			"standard_key": {
-				Type:        schema.TypeBool,
-				Default:     false,
-				Optional:    true,
-				ForceNew:    true,
-				Description: "Standard key type",
-			},
-			"payload": {
-				Type:     schema.TypeString,
-				Computed: true,
-				Optional: true,
-				ForceNew: true,
-			},
-			"encrypted_nonce": {
-				Type:        schema.TypeString,
-				Optional:    true,
-				ForceNew:    true,
-				Description: "Only for imported root key",
-			},
-			"iv_value": {
-				Type:        schema.TypeString,
-				Optional:    true,
-				ForceNew:    true,
-				Description: "Only for imported root key",
-			},
-			"force_delete": {
-				Type:        schema.TypeBool,
-				Optional:    true,
-				Description: "set to true to force delete the key",
-				ForceNew:    false,
-				Default:     false,
-			},
-			"crn": {
-				Type:        schema.TypeString,
-				Computed:    true,
-				Description: "Crn of the key",
-			},
-			"expiration_date": {
-				Type:        schema.TypeString,
-				Optional:    true,
-				Description: "The date the key material expires. The date format follows RFC 3339. You can set an expiration date on any key on its creation. A key moves into the Deactivated state within one hour past its expiration date, if one is assigned. If you create a key without specifying an expiration date, the key does not expire",
-				ForceNew:    true,
-			},
 			"policies": {
 				Type:        schema.TypeList,
-				Deprecated:  "Support for creating Policies with the key will soon be removed, Utilise the new resource for creating policies for the keys => ibm_kms_key_policy",
 				Optional:    true,
 				Computed:    true,
 				Description: "Creates or updates one or more policies for the specified key",
@@ -221,67 +159,55 @@ func resourceIBMKmskey() *schema.Resource {
 				Computed:    true,
 				Description: "The name of the resource",
 			},
-
 			ResourceCRN: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "The crn of the resource",
 			},
-
 			ResourceStatus: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "The status of the resource",
 			},
-
-			ResourceGroupName: {
-				Type:        schema.TypeString,
-				Computed:    true,
-				Description: "The resource group name in which resource is provisioned",
-			},
-			ResourceControllerURL: {
-				Type:        schema.TypeString,
-				Computed:    true,
-				Description: "The URL of the IBM Cloud dashboard that can be used to explore and view details about the resource",
-			},
 		},
 	}
 }
-
-func resourceIBMKmsKeyCreate(d *schema.ResourceData, meta interface{}) error {
+func resourceIBMKmsKeyPolicyCreate(context context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	kpAPI, err := meta.(ClientSession).keyManagementAPI()
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	rContollerClient, err := meta.(ClientSession).ResourceControllerAPIV2()
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
+
+	log.Println("Entering the Policies++++++++>>>>>>>>")
 
 	instanceID := d.Get("instance_id").(string)
 	endpointType := d.Get("endpoint_type").(string)
+	key_id := d.Get("key_id").(string)
 
 	rContollerApi := rContollerClient.ResourceServiceInstanceV2()
 
 	instanceData, err := rContollerApi.GetInstance(instanceID)
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 	instanceCRN := instanceData.Crn.String()
 	crnData := strings.Split(instanceCRN, ":")
-
 	var hpcsEndpointURL string
 
 	if crnData[4] == "hs-crypto" {
 		hpcsEndpointAPI, err := meta.(ClientSession).HpcsEndpointAPI()
 		if err != nil {
-			return err
+			return diag.FromErr(err)
 		}
 
 		resp, err := hpcsEndpointAPI.Endpoint().GetAPIEndpoint(instanceID)
 		if err != nil {
-			return err
+			return diag.FromErr(err)
 		}
 
 		if endpointType == "public" {
@@ -292,7 +218,7 @@ func resourceIBMKmsKeyCreate(d *schema.ResourceData, meta interface{}) error {
 
 		u, err := url.Parse(hpcsEndpointURL)
 		if err != nil {
-			return fmt.Errorf("Error Parsing hpcs EndpointURL")
+			return diag.Errorf("Error Parsing hpcs EndpointURL")
 		}
 		kpAPI.URL = u
 	} else if crnData[4] == "kms" {
@@ -303,23 +229,18 @@ func resourceIBMKmsKeyCreate(d *schema.ResourceData, meta interface{}) error {
 					kmsEndpointURL := kmsEndpURL[0] + "private." + kmsEndpURL[1]
 					u, err := url.Parse(kmsEndpointURL)
 					if err != nil {
-						return fmt.Errorf("Error Parsing kms EndpointURL")
+						return diag.Errorf("Error Parsing kms EndpointURL")
 					}
 					kpAPI.URL = u
 				} else {
-					return fmt.Errorf("Error in Kms EndPoint URL ")
+					return diag.Errorf("Error in Kms EndPoint URL ")
 				}
 			}
 		}
 	} else {
-		return fmt.Errorf("Invalid or unsupported service Instance")
+		return diag.Errorf("Invalid or unsupported service Instance")
 	}
 	kpAPI.Config.InstanceID = instanceID
-
-	kpAPI.Config.KeyRing = d.Get("key_ring_id").(string)
-
-	name := d.Get("key_name").(string)
-	standardKey := d.Get("standard_key").(bool)
 
 	var expiration *time.Time
 	if es, ok := d.GetOk("expiration_date"); ok {
@@ -327,67 +248,29 @@ func resourceIBMKmsKeyCreate(d *schema.ResourceData, meta interface{}) error {
 		// parse string to required time format
 		expiration_time, err := time.Parse(time.RFC3339, expiration_string)
 		if err != nil {
-			return fmt.Errorf("Invalid time format (the date format follows RFC 3339): %s", err)
+			return diag.Errorf("Invalid time format (the date format follows RFC 3339): %s", err)
 		}
 		expiration = &expiration_time
 	} else {
 		expiration = nil
 	}
-
-	var keyCRN string
-	if standardKey {
-		if v, ok := d.GetOk("payload"); ok {
-			//import standard key
-			payload := v.(string)
-			stkey, err := kpAPI.CreateImportedStandardKey(context.Background(), name, expiration, payload)
-			if err != nil {
-				return fmt.Errorf(
-					"Error while creating standard key with payload: %s", err)
-			}
-			keyCRN = stkey.CRN
-			d.SetId(keyCRN)
-
-		} else {
-			//create standard key
-			stkey, err := kpAPI.CreateStandardKey(context.Background(), name, expiration)
-			if err != nil {
-				return fmt.Errorf(
-					"Error while creating standard key: %s", err)
-			}
-			keyCRN = stkey.CRN
-			d.SetId(keyCRN)
-
-		}
-	} else {
-		if v, ok := d.GetOk("payload"); ok {
-			payload := v.(string)
-			encryptedNonce := d.Get("encrypted_nonce").(string)
-			iv := d.Get("iv_value").(string)
-			stkey, err := kpAPI.CreateImportedRootKey(context.Background(), name, expiration, payload, encryptedNonce, iv)
-			if err != nil {
-				return fmt.Errorf(
-					"Error while creating Root key with payload: %s", err)
-			}
-			keyCRN = stkey.CRN
-			d.SetId(keyCRN)
-
-		} else {
-			stkey, err := kpAPI.CreateRootKey(context.Background(), name, expiration)
-			if err != nil {
-				return fmt.Errorf(
-					"Error while creating Root key: %s", err)
-			}
-			keyCRN = stkey.CRN
-			d.SetId(keyCRN)
-		}
+	log.Println("expiration", expiration)
+	key, err := kpAPI.GetKey(context, key_id)
+	if err != nil {
+		return diag.Errorf("Get Key failed with error: %s", err)
 	}
-	return resourceIBMKmsKeyUpdate(d, meta)
+	err = resourceHandlePolicies(context, d, kpAPI, meta, key_id)
+	if err != nil {
+		return diag.Errorf("Could not create policies: %s", err)
+	}
+	d.SetId(key.CRN)
+	return resourceIBMKmsKeyPolicyUpdate(context, d, meta)
 }
 
-func resourceIBMKmsKeyRead(d *schema.ResourceData, meta interface{}) error {
+func resourceIBMKmsKeyPolicyRead(context context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	kpAPI, err := meta.(ClientSession).keyManagementAPI()
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 	crn := d.Id()
 	crnData := strings.Split(crn, ":")
@@ -397,17 +280,17 @@ func resourceIBMKmsKeyRead(d *schema.ResourceData, meta interface{}) error {
 
 	var instanceType string
 	var hpcsEndpointURL string
-
+	log.Println("instancetype", instanceType)
 	if crnData[4] == "hs-crypto" {
 		instanceType = "hs-crypto"
 		hpcsEndpointAPI, err := meta.(ClientSession).HpcsEndpointAPI()
 		if err != nil {
-			return err
+			return diag.FromErr(err)
 		}
 
 		resp, err := hpcsEndpointAPI.Endpoint().GetAPIEndpoint(instanceID)
 		if err != nil {
-			return err
+			return diag.FromErr(err)
 		}
 
 		if endpointType == "public" {
@@ -418,7 +301,7 @@ func resourceIBMKmsKeyRead(d *schema.ResourceData, meta interface{}) error {
 
 		u, err := url.Parse(hpcsEndpointURL)
 		if err != nil {
-			return fmt.Errorf("Error Parsing hpcs EndpointURL")
+			return diag.Errorf("Error Parsing hpcs EndpointURL")
 
 		}
 		kpAPI.URL = u
@@ -431,28 +314,29 @@ func resourceIBMKmsKeyRead(d *schema.ResourceData, meta interface{}) error {
 					kmsEndpointURL := kmsEndpURL[0] + "private." + kmsEndpURL[1]
 					u, err := url.Parse(kmsEndpointURL)
 					if err != nil {
-						return fmt.Errorf("Error Parsing kms EndpointURL")
+						return diag.Errorf("Error Parsing kms EndpointURL")
 					}
 					kpAPI.URL = u
 				} else {
-					return fmt.Errorf("Error in Kms EndPoint URL ")
+					return diag.Errorf("Error in Kms EndPoint URL ")
 				}
 			}
 		}
 	} else {
-		return fmt.Errorf("Invalid or unsupported service Instance")
+		return diag.Errorf("Invalid or unsupported service Instance")
 	}
 
 	kpAPI.Config.InstanceID = instanceID
 	// keyid := d.Id()
-	key, err := kpAPI.GetKey(context.Background(), keyid)
+	key, err := kpAPI.GetKey(context, keyid)
 	if err != nil {
-		return fmt.Errorf("Get Key failed with error: %s", err)
+		return diag.Errorf("Get Key failed with error: %s", err)
 	}
 
-	policies, err := kpAPI.GetPolicies(context.Background(), keyid)
-	if err != nil && !strings.Contains(fmt.Sprint(err), "Unauthorized: The user does not have access to the specified resource") {
-		return fmt.Errorf("Failed to read policies: %s", err)
+	policies, err := kpAPI.GetPolicies(context, keyid)
+
+	if err != nil {
+		return diag.Errorf("Failed to read policies: %s", err)
 	}
 	if len(policies) == 0 {
 		log.Printf("No Policy Configurations read\n")
@@ -461,16 +345,7 @@ func resourceIBMKmsKeyRead(d *schema.ResourceData, meta interface{}) error {
 	}
 	d.Set("instance_id", instanceID)
 	d.Set("key_id", keyid)
-	d.Set("standard_key", key.Extractable)
-	d.Set("payload", key.Payload)
-	d.Set("encrypted_nonce", key.EncryptedNonce)
-	d.Set("iv_value", key.IV)
-	d.Set("key_name", key.Name)
-	d.Set("crn", key.CRN)
 	d.Set("endpoint_type", endpointType)
-	d.Set("type", instanceType)
-	d.Set("force_delete", d.Get("force_delete").(bool))
-	d.Set("key_ring_id", key.KeyRingID)
 	if key.Expiration != nil {
 		expiration := key.Expiration
 		d.Set("expiration_date", expiration.Format(time.RFC3339))
@@ -483,7 +358,7 @@ func resourceIBMKmsKeyRead(d *schema.ResourceData, meta interface{}) error {
 	d.Set(ResourceStatus, strconv.Itoa(state))
 	rcontroller, err := getBaseController(meta)
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 	id := key.ID
 	crn1 := strings.TrimSuffix(key.CRN, ":key:"+id)
@@ -494,21 +369,18 @@ func resourceIBMKmsKeyRead(d *schema.ResourceData, meta interface{}) error {
 
 }
 
-func resourceIBMKmsKeyUpdate(d *schema.ResourceData, meta interface{}) error {
+func resourceIBMKmsKeyPolicyUpdate(context context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 
-	if d.HasChange("force_delete") {
-		d.Set("force_delete", d.Get("force_delete").(bool))
-	}
 	if d.HasChange("policies") {
 
 		kpAPI, err := meta.(ClientSession).keyManagementAPI()
 		if err != nil {
-			return err
+			return diag.FromErr(err)
 		}
 
 		rContollerClient, err := meta.(ClientSession).ResourceControllerAPIV2()
 		if err != nil {
-			return err
+			return diag.FromErr(err)
 		}
 
 		instanceID := d.Get("instance_id").(string)
@@ -518,7 +390,7 @@ func resourceIBMKmsKeyUpdate(d *schema.ResourceData, meta interface{}) error {
 
 		instanceData, err := rContollerApi.GetInstance(instanceID)
 		if err != nil {
-			return err
+			return diag.FromErr(err)
 		}
 		instanceCRN := instanceData.Crn.String()
 		crnData := strings.Split(instanceCRN, ":")
@@ -528,12 +400,12 @@ func resourceIBMKmsKeyUpdate(d *schema.ResourceData, meta interface{}) error {
 		if crnData[4] == "hs-crypto" {
 			hpcsEndpointAPI, err := meta.(ClientSession).HpcsEndpointAPI()
 			if err != nil {
-				return err
+				return diag.FromErr(err)
 			}
 
 			resp, err := hpcsEndpointAPI.Endpoint().GetAPIEndpoint(instanceID)
 			if err != nil {
-				return err
+				return diag.FromErr(err)
 			}
 
 			if endpointType == "public" {
@@ -544,7 +416,7 @@ func resourceIBMKmsKeyUpdate(d *schema.ResourceData, meta interface{}) error {
 
 			u, err := url.Parse(hpcsEndpointURL)
 			if err != nil {
-				return fmt.Errorf("Error Parsing hpcs EndpointURL")
+				return diag.Errorf("Error Parsing hpcs EndpointURL")
 			}
 			kpAPI.URL = u
 		} else if crnData[4] == "kms" {
@@ -555,16 +427,16 @@ func resourceIBMKmsKeyUpdate(d *schema.ResourceData, meta interface{}) error {
 						kmsEndpointURL := kmsEndpURL[0] + "private." + kmsEndpURL[1]
 						u, err := url.Parse(kmsEndpointURL)
 						if err != nil {
-							return fmt.Errorf("Error Parsing kms EndpointURL")
+							return diag.Errorf("Error Parsing kms EndpointURL")
 						}
 						kpAPI.URL = u
 					} else {
-						return fmt.Errorf("Error in Kms EndPoint URL ")
+						return diag.Errorf("Error in Kms EndPoint URL ")
 					}
 				}
 			}
 		} else {
-			return fmt.Errorf("Invalid or unsupported service Instance")
+			return diag.Errorf("Invalid or unsupported service Instance")
 		}
 
 		kpAPI.Config.InstanceID = instanceID
@@ -573,158 +445,25 @@ func resourceIBMKmsKeyUpdate(d *schema.ResourceData, meta interface{}) error {
 		crnData = strings.Split(crn, ":")
 		key_id := crnData[len(crnData)-1]
 
-		err = handlePolicies(d, kpAPI, meta, key_id)
+		err = resourceHandlePolicies(context, d, kpAPI, meta, key_id)
 		if err != nil {
 			resourceIBMKmsKeyRead(d, meta)
-			return fmt.Errorf("Could not create policies: %s", err)
+			return diag.Errorf("Could not create policies: %s", err)
 		}
 	}
-	return resourceIBMKmsKeyRead(d, meta)
+	return resourceIBMKmsKeyPolicyRead(context, d, meta)
 
 }
 
-func resourceIBMKmsKeyDelete(d *schema.ResourceData, meta interface{}) error {
-	kpAPI, err := meta.(ClientSession).keyManagementAPI()
-	if err != nil {
-		return err
-	}
-	crn := d.Id()
-	crnData := strings.Split(crn, ":")
-	endpointType := crnData[3]
-	instanceID := crnData[len(crnData)-3]
-	keyid := crnData[len(crnData)-1]
-	kpAPI.Config.InstanceID = instanceID
-
-	var hpcsEndpointURL string
-
-	if crnData[4] == "hs-crypto" {
-		hpcsEndpointAPI, err := meta.(ClientSession).HpcsEndpointAPI()
-		if err != nil {
-			return err
-		}
-
-		resp, err := hpcsEndpointAPI.Endpoint().GetAPIEndpoint(instanceID)
-		if err != nil {
-			return err
-		}
-
-		if endpointType == "public" {
-			hpcsEndpointURL = "https://" + resp.Kms.Public + "/api/v2/keys"
-		} else {
-			hpcsEndpointURL = "https://" + resp.Kms.Private + "/api/v2/keys"
-		}
-
-		u, err := url.Parse(hpcsEndpointURL)
-		if err != nil {
-			return fmt.Errorf("Error Parsing hpcs EndpointURL")
-		}
-		kpAPI.URL = u
-	} else if crnData[4] == "kms" {
-		if endpointType == "private" {
-			if !strings.Contains(kpAPI.Config.BaseURL, "private") {
-				kmsEndpURL := strings.SplitAfter(kpAPI.Config.BaseURL, "https://")
-				if len(kmsEndpURL) == 2 {
-					kmsEndpointURL := kmsEndpURL[0] + "private." + kmsEndpURL[1]
-					u, err := url.Parse(kmsEndpointURL)
-					if err != nil {
-						return fmt.Errorf("Error Parsing kms EndpointURL")
-					}
-					kpAPI.URL = u
-				} else {
-					return fmt.Errorf("Error in Kms EndPoint URL ")
-				}
-			}
-		}
-	} else {
-		return fmt.Errorf("Invalid or unsupported service Instance")
-	}
-
-	force := d.Get("force_delete").(bool)
-	f := kp.ForceOpt{
-		Force: force,
-	}
-
-	_, err1 := kpAPI.DeleteKey(context.Background(), keyid, kp.ReturnRepresentation, f)
-	if err1 != nil {
-		return fmt.Errorf(
-			"Error while deleting: %s", err1)
-	}
+func resourceIBMKmsKeyPolicyDelete(context context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	//Do not support delete Policies
+	log.Println("Warning:  `terraform destroy` does not remove the policies of the Key but only clears the state file. Key Policies get deleted when the associated key resource is destroyed.")
 	d.SetId("")
 	return nil
 
 }
 
-func resourceIBMKmsKeyExists(d *schema.ResourceData, meta interface{}) (bool, error) {
-	kpAPI, err := meta.(ClientSession).keyManagementAPI()
-	if err != nil {
-		return false, err
-	}
-
-	crn := d.Id()
-	crnData := strings.Split(crn, ":")
-	endpointType := crnData[3]
-	instanceID := crnData[len(crnData)-3]
-	keyid := crnData[len(crnData)-1]
-	kpAPI.Config.InstanceID = instanceID
-
-	var hpcsEndpointURL string
-
-	if crnData[4] == "hs-crypto" {
-		hpcsEndpointAPI, err := meta.(ClientSession).HpcsEndpointAPI()
-		if err != nil {
-			return false, err
-		}
-
-		resp, err := hpcsEndpointAPI.Endpoint().GetAPIEndpoint(instanceID)
-		if err != nil {
-			return false, err
-		}
-
-		if endpointType == "public" {
-			hpcsEndpointURL = "https://" + resp.Kms.Public + "/api/v2/keys"
-		} else {
-			hpcsEndpointURL = "https://" + resp.Kms.Private + "/api/v2/keys"
-		}
-
-		u, err := url.Parse(hpcsEndpointURL)
-		if err != nil {
-			return false, fmt.Errorf("Error Parsing hpcs EndpointURL")
-
-		}
-		kpAPI.URL = u
-	} else if crnData[4] == "kms" {
-		if endpointType == "private" {
-			if !strings.Contains(kpAPI.Config.BaseURL, "private") {
-				kmsEndpURL := strings.SplitAfter(kpAPI.Config.BaseURL, "https://")
-				if len(kmsEndpURL) == 2 {
-					kmsEndpointURL := kmsEndpURL[0] + "private." + kmsEndpURL[1]
-					u, err := url.Parse(kmsEndpointURL)
-					if err != nil {
-						return false, fmt.Errorf("Error Parsing kms EndpointURL")
-					}
-					kpAPI.URL = u
-				} else {
-					return false, fmt.Errorf("Error in Kms EndPoint URL ")
-				}
-			}
-		}
-	} else {
-		return false, fmt.Errorf("Invalid or unsupported service Instance")
-	}
-
-	_, err = kpAPI.GetKey(context.Background(), keyid)
-	if err != nil {
-		kpError := err.(*kp.Error)
-		if kpError.StatusCode == 404 {
-			return false, nil
-		}
-		return false, err
-	}
-	return true, nil
-
-}
-
-func handlePolicies(d *schema.ResourceData, kpAPI *kp.Client, meta interface{}, key_id string) error {
+func resourceHandlePolicies(context context.Context, d *schema.ResourceData, kpAPI *kp.Client, meta interface{}, key_id string) error {
 	var setRotation, setDualAuthDelete, dualAuthEnable bool
 	var rotationInterval int
 
@@ -748,7 +487,7 @@ func handlePolicies(d *schema.ResourceData, kpAPI *kp.Client, meta interface{}, 
 			}
 		}
 
-		_, err := kpAPI.SetPolicies(context.Background(), key_id, setRotation, rotationInterval, setDualAuthDelete, dualAuthEnable)
+		_, err := kpAPI.SetPolicies(context, key_id, setRotation, rotationInterval, setDualAuthDelete, dualAuthEnable)
 		if err != nil {
 			return fmt.Errorf("Error while creating policies: %s", err)
 		}
