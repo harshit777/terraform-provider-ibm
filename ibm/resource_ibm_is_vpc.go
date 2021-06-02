@@ -13,12 +13,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/IBM-Cloud/terraform-provider-ibm/ibm/internal/hashcode"
 	"github.com/IBM/vpc-go-sdk/vpcclassicv1"
 	"github.com/IBM/vpc-go-sdk/vpcv1"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+
+	"github.com/IBM-Cloud/terraform-provider-ibm/ibm/internal/hashcode"
 )
 
 const (
@@ -240,9 +241,8 @@ func resourceIBMISVPC() *schema.Resource {
 
 						isVPCSecurityGroupID: {
 							Type:        schema.TypeString,
-							Required:    true,
+							Computed:    true,
 							Description: "Security group id",
-							ForceNew:    true,
 						},
 
 						isSecurityGroupRules: {
@@ -547,7 +547,7 @@ func vpcCreate(d *schema.ResourceData, meta interface{}, name, apm, rg string, i
 
 	vpc, response, err := sess.CreateVPC(options)
 	if err != nil {
-		return fmt.Errorf("Error while creating VPC err %s\n%s", err, response)
+		return fmt.Errorf("Error while creating VPC %s ", beautifyError(err, response))
 	}
 	d.SetId(*vpc.ID)
 

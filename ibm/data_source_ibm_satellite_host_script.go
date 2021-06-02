@@ -79,9 +79,9 @@ func dataSourceIBMSatelliteAttachHostScriptRead(d *schema.ResourceData, meta int
 		Controller: &location,
 	}
 
-	locData, _, err := satClient.GetSatelliteLocation(getSatLocOptions)
+	locData, response, err := satClient.GetSatelliteLocation(getSatLocOptions)
 	if err != nil {
-		return err
+		return fmt.Errorf("Error getting Satellite location (%s): %s\n%s", location, err, response)
 	}
 
 	// script labels
@@ -120,7 +120,11 @@ func dataSourceIBMSatelliteAttachHostScriptRead(d *schema.ResourceData, meta int
 			} else if strings.ToLower(hostProvider) == "ibm" {
 				lines[i] = "subscription-manager refresh\nsubscription-manager repos --enable=*\n"
 			} else if strings.ToLower(hostProvider) == "azure" {
-				lines[i] = "# Grow the TMP LV\nlvextend -L+10G /dev/rootvg/tmplv\nxfs_growfs /dev/rootvg/tmplv\n# Grow the var LV\nlvextend -L+20G /dev/rootvg/varlv\nxfs_growfs /dev/rootvg/varlv\nyum update -y\nyum-config-manager --enable '*'\nyum repolist all\nyum install container-selinux -y"
+				lines[i] = fmt.Sprintf(`yum update --disablerepo=* --enablerepo="*microsoft*" -y
+yum-config-manager --enable '*'
+yum repolist all
+yum install container-selinux -y
+				`)
 			}
 		}
 	}
