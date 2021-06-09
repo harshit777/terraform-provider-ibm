@@ -269,6 +269,7 @@ func resourceIBMKmsKeyCreate(d *schema.ResourceData, meta interface{}) error {
 	}
 	instanceCRN := instanceData.Crn.String()
 	crnData := strings.Split(instanceCRN, ":")
+	log.Println("KP API ", kpAPI.URL)
 
 	var hpcsEndpointURL string
 
@@ -295,11 +296,13 @@ func resourceIBMKmsKeyCreate(d *schema.ResourceData, meta interface{}) error {
 		}
 		kpAPI.URL = u
 	} else if crnData[4] == "kms" {
+		log.Println("KP API ", kpAPI.URL)
 		if endpointType == "private" {
+			log.Println("KP API ", kpAPI.URL)
 			if !strings.Contains(kpAPI.Config.BaseURL, "private") {
 				kmsEndpURL := strings.SplitAfter(kpAPI.Config.BaseURL, "https://")
 				if len(kmsEndpURL) == 2 {
-					kmsEndpointURL := kmsEndpURL[0] + "private." + kmsEndpURL[1]
+					kmsEndpointURL := kmsEndpURL[0] + "private." + kmsEndpURL[1] + "/api/v2/"
 					u, err := url.Parse(kmsEndpointURL)
 					if err != nil {
 						return fmt.Errorf("Error Parsing kms EndpointURL")
@@ -390,7 +393,7 @@ func resourceIBMKmsKeyRead(d *schema.ResourceData, meta interface{}) error {
 	}
 	crn := d.Id()
 	crnData := strings.Split(crn, ":")
-	endpointType := d.Get("endpoint_type").(string)
+	endpointType := crnData[3]
 	instanceID := crnData[len(crnData)-3]
 	keyid := crnData[len(crnData)-1]
 
@@ -467,11 +470,7 @@ func resourceIBMKmsKeyRead(d *schema.ResourceData, meta interface{}) error {
 	d.Set("iv_value", key.IV)
 	d.Set("key_name", key.Name)
 	d.Set("crn", key.CRN)
-	if strings.Contains(kpAPI.Config.BaseURL, "private") {
-		d.Set("endpoint_type", "private")
-	} else {
-		d.Set("endpoint_type", endpointType)
-	}
+	d.Set("endpoint_type", endpointType)
 	d.Set("type", instanceType)
 	d.Set("force_delete", d.Get("force_delete").(bool))
 	d.Set("key_ring_id", key.KeyRingID)
@@ -594,7 +593,7 @@ func resourceIBMKmsKeyDelete(d *schema.ResourceData, meta interface{}) error {
 	}
 	crn := d.Id()
 	crnData := strings.Split(crn, ":")
-	endpointType := d.Get("endpoint_type").(string)
+	endpointType := crnData[3]
 	instanceID := crnData[len(crnData)-3]
 	keyid := crnData[len(crnData)-1]
 	kpAPI.Config.InstanceID = instanceID
@@ -666,7 +665,7 @@ func resourceIBMKmsKeyExists(d *schema.ResourceData, meta interface{}) (bool, er
 
 	crn := d.Id()
 	crnData := strings.Split(crn, ":")
-	endpointType := d.Get("endpoint_type").(string)
+	endpointType := crnData[3]
 	instanceID := crnData[len(crnData)-3]
 	keyid := crnData[len(crnData)-1]
 	kpAPI.Config.InstanceID = instanceID
